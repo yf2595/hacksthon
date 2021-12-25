@@ -34,10 +34,10 @@ class Server:
     def start_server_udp(self):
         sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) #UDP 
         sock.bind((self.Ip, self.Port))
-        bytes_to_send=struct.pack("bbl","0xabcddcba","0x2",self.Port) #need to see how you can send byte or string?!
+        bytes_to_send=struct.pack(">IbH",0xabcddcba,0x2,self.Port) #need to see how you can send byte or string?!
         
         while not self.begin_game.locked(): #while the tcp thread did not said that the game started
-            sock.sendto(bytes_to_send,("",self.udp_dest)) # send offer
+            sock.sendto(bytes_to_send,("<broadcast>",self.udp_dest)) # send offer
             time.sleep(1) # sleep
         sock.close()    
             
@@ -79,7 +79,7 @@ class Server:
         #start counting 10 seconds if no data reviced then send draw message   
         timer = threading.Timer(10.0)
         timer.start()
-        while(self.winner != None and not timer.finished()):
+        while(self.winner == None and not timer.finished()):
             try:
                 conn.settimeout(1)
                 data=conn.recv(1024)
@@ -94,7 +94,7 @@ class Server:
         #check the answer and decide if winneer
         if(not self.finish):
             self.check.acquire()
-            if(self.winner != None):
+            if(self.winner == None):
                 if data=='8':
                     self.winner=self.name1
                 else:
@@ -118,7 +118,7 @@ class Server:
         #start counting 10 seconds if no data reviced then send draw message   
         timer = threading.Timer(10.0)
         timer.start()
-        while(self.winner != None and not timer.finished()):
+        while(self.winner == None and not timer.finished()):
             try:
                 conn.settimeout(1)
                 data=conn.recv(1024)
@@ -132,7 +132,7 @@ class Server:
         #check the answer and decide if winneer
         if(not self.finish):
             self.check.acquire()
-            if(self.winner != None):
+            if(self.winner == None):
                 if data=='8':
                     self.winner=self.name2
                 else:
@@ -145,6 +145,8 @@ class Server:
         conn.close()
         self.begin_game.release()
         
+
+serv=Server("127.0.0.1")
         
 #maybe make a winner function with lock and some boolean variable to know if someone was there?    
 #need to make sure after closing both sockets that the udp function will start again on different thread.
