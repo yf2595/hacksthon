@@ -34,7 +34,7 @@ class Server:
     def start_server_udp(self):
         sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) #UDP 
         sock.bind((self.Ip, self.Port))
-        bytes_to_send=struct.pack("","0xabcddcba","0x2",self.Ip)
+        bytes_to_send=struct.pack("bbl","0xabcddcba","0x2",self.Port) #need to see how you can send byte or string?!
         
         while not self.begin_game.locked(): #while the tcp thread did not said that the game started
             sock.sendto(bytes_to_send,("",self.udp_dest)) # send offer
@@ -80,8 +80,14 @@ class Server:
         timer = threading.Timer(10.0)
         timer.start()
         while(self.winner != None and not timer.finished()):
-            data=conn.recv(1024).decode()
-            break;
+            try:
+                conn.settimeout(1)
+                data=conn.recv(1024)
+                data=data.decode()
+                break;
+            except:
+                continue
+                
 
         if(timer.finished()):
             self.finish = True
@@ -113,8 +119,13 @@ class Server:
         timer = threading.Timer(10.0)
         timer.start()
         while(self.winner != None and not timer.finished()):
-            data=conn.recv(1024).decode()
-            break
+            try:
+                conn.settimeout(1)
+                data=conn.recv(1024)
+                data=data.decode()
+                break;
+            except:
+                continue
 
         if(timer.finished()):
             self.finish = True
@@ -135,5 +146,5 @@ class Server:
         self.begin_game.release()
         
         
-    
+#maybe make a winner function with lock and some boolean variable to know if someone was there?    
 #need to make sure after closing both sockets that the udp function will start again on different thread.
