@@ -72,9 +72,22 @@ class Server:
                     is_full = True
                     player2.start()
 
+
             self.begin_game.acquire()  # change the lock to locked the udp loop will stop
+            print(self.begin_game.locked())
+            player1.join()
+            print("first player finished")
+            player2.join()
+            print("second client finished")
+
+            print('Server started, listening on IP address ' + self.Ip)
+            self.begin_game.release()
+            udp_thread = threading.Thread(target=self.start_server_udp)
+            udp_thread.start()
+
 
     def handle_client1(self, conn):
+        self.finish=False
         self.name1 = conn.recv(1024).decode()
         print(self.name1)
         self.ber.wait()  # wait for the other thread to arrive to this point
@@ -85,7 +98,7 @@ class Server:
         end_timer=time.time();
         while self.winner is None and (end_timer-timer<10.0):
             try:
-                # conn.settimeout(5)
+                # conn.settimeout(1)
                 data = conn.recv(1024)
                 data = data.decode()
                 break;
@@ -94,7 +107,6 @@ class Server:
                 print(e)
             finally:
                 end_timer=time.time();
-
         if end_timer-timer>=10.0:
             self.finish = True
         # check the answer and decide if winneer
@@ -114,6 +126,7 @@ class Server:
         conn.close()
 
     def handle_client2(self, conn):
+        self.finish=False
         self.name2 = conn.recv(1024).decode()
         self.ber.wait()  # the game can start if both threads are here
         msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
@@ -152,7 +165,6 @@ class Server:
         conn.send(
             ('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
         conn.close()
-        self.begin_game.release()
 
 
 if __name__ == '__main__':

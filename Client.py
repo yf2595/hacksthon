@@ -55,10 +55,11 @@ class Client:
         except Exception as e:
             print('Server disconnected, listening for offer requests...')
             print(e)
-            self.getting_offers()
             # maybe need to close the socket ?
             # looking for the tcp connection to close by the sever and prints that the connection closed
             # returning to getting_offers function
+        finally:
+            self.getting_offers()
 
 
 if __name__ == '__main__':
