@@ -51,12 +51,14 @@ class Server:
 
 
     def start_server_tcp(self):
-        self.winner = None
-        self.finish = False
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((self.Ip, self.Port))
         s.listen(2)
         while True:
+            self.winner = None
+            self.ber=threading.Barrier(2)
+            self.finish = False
             is_empty = True  # no even one player
             is_full = False  # all the players arrived the game can begin
             while not is_full:
@@ -87,7 +89,6 @@ class Server:
 
 
     def handle_client1(self, conn):
-        self.finish=False
         self.name1 = conn.recv(1024).decode()
         print(self.name1)
         self.ber.wait()  # wait for the other thread to arrive to this point
@@ -107,6 +108,7 @@ class Server:
                 print(e)
             finally:
                 end_timer=time.time();
+
         if end_timer-timer>=10.0:
             self.finish = True
         # check the answer and decide if winneer
@@ -117,16 +119,16 @@ class Server:
                     self.winner = self.name1
                 else:
                     self.winner = self.name2
-                self.check.release()
+            self.check.release()
         else:
-            self.winner = "draw"
+            if self.winner is None:
+                self.winner = "draw"
         # send summery and close the socket
         conn.send(
             ('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
         conn.close()
 
     def handle_client2(self, conn):
-        self.finish=False
         self.name2 = conn.recv(1024).decode()
         self.ber.wait()  # the game can start if both threads are here
         msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
@@ -158,9 +160,10 @@ class Server:
                     self.winner = self.name2
                 else:
                     self.winner = self.name1
-                self.check.release()
+            self.check.release()
         else:
-            self.winner = "draw"
+            if self.winner is None:
+                self.winner = "draw"
         # send summery and close the socket
         conn.send(
             ('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
