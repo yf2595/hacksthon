@@ -1,5 +1,8 @@
+import select
 import socket
 import struct
+import msvcrt
+
 
 
 class Client:
@@ -7,28 +10,58 @@ class Client:
     name = "AmitAndJuval\n"
     tcp_port = None
 
+
+
     def __init__(self):
         self.getting_offers()
 
+
+
+
     def getting_offers(self):
+        complete = True
         # getting udp offers
-        print('Client started, listening for offer requests...')
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        s.bind(('', 13117))
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            #s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            s.bind(('', 13117))
+            print('Client started, listening for offer requests...')
+        except Exception as e:
+            print("unable to connect with UDP socket")
+            complete=False;
 
         # getting offers until messege with right ormat arrives
         while True:
-            data, server = s.recvfrom(1024)
-            # checking that they are in the right format
-            tup = struct.unpack(">IbH", data)
-            if tup[0] == 0xabcddcba and tup[1] == 0x2:  # check the condition
-                # exctarting the port
-                self.tcp_port = tup[2]
-                s.close()
+            try:
+                data, server = s.recvfrom(1024)
+            except Exception as e:
+                print("unable to receive data from socket, connection problem")
+                complete = False
                 break
+            # checking that they are in the right format
+            try:
+                tup = struct.unpack(">IbH", data)
+            except Exception as e:
+                print("unable to unapck the data from "+server[0]+" , not in >IbH format")
+                continue
+            if len(tup)==3:
+                if tup[0] == 0xabcddcba and tup[1] == 0x2:  # check the condition
+                    # exctarting the port
+                    if type(tup[2]) is int:
+                        self.tcp_port = tup[2]
+                        s.close()
+                        break
         # got tcp port attempting to connect
-        self.connect_to_server(server[0])
+        if complete:
+            self.connect_to_server(server[0])
+            return
+        #else:
+            #self.getting_offers();
+
+
+
+
+
 
     def connect_to_server(self, host_ip):
         # connectiong by tcp to the server
@@ -44,17 +77,22 @@ class Client:
             data = sock.recv(1024)
             print(data.decode())
             # getting messege from the server (game begin) and prints
+            while True:
+                if msvcrt.kbhit():
+                    read=msvcrt.getwch()
+                    print("pressed "+read.decode())
+                    sock.send(read.decode())
+                    data = sock.recv(1024)
+                    print(data.decode())
+                    break;
+                r, _, _ = select.select([sock], [], [],1)
+                if r:
+                    data = sock.recv(1024)
+                    print(data.decode())
+                    break;
 
-            answer = input()
-            sock.send(answer.encode())
-            # sending char to the server while keep on listiong for messeges
-
-            data = sock.recv(1024)
-            print(data.decode())
-            # gettng winner messege from server and prints
         except Exception as e:
             print('Server disconnected, listening for offer requests...')
-            print(e)
             # maybe need to close the socket ?
             # looking for the tcp connection to close by the sever and prints that the connection closed
             # returning to getting_offers function

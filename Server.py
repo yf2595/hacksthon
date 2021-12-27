@@ -1,7 +1,7 @@
 import socket
 import threading
 import time
-# import scapy # used to get the ip address like in the instroctions
+import scapy.all
 import struct
 
 
@@ -12,11 +12,13 @@ class Server:
     eth0 = '172.99.0/24'
     name1 = None
     name2 = None
+    answer1=None
+    answer2=None
+    grand_answer="8"
     winner = None
     begin_game = threading.Lock()
     ber = threading.Barrier(2)
     check = threading.Lock()
-    finish = False
 
     def __init__(self, ip):
         self.Ip = ip
@@ -30,6 +32,9 @@ class Server:
         # start tcp
         udp_thread.start()
         tcp_thread.start()
+
+
+
 
     def start_server_udp(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -50,6 +55,8 @@ class Server:
         sock.close()
 
 
+
+
     def start_server_tcp(self):
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -58,7 +65,6 @@ class Server:
         while True:
             self.winner = None
             self.ber=threading.Barrier(2)
-            self.finish = False
             is_empty = True  # no even one player
             is_full = False  # all the players arrived the game can begin
             while not is_full:
@@ -76,11 +82,8 @@ class Server:
 
 
             self.begin_game.acquire()  # change the lock to locked the udp loop will stop
-            print(self.begin_game.locked())
             player1.join()
-            print("first player finished")
             player2.join()
-            print("second client finished")
 
             print('Server started, listening on IP address ' + self.Ip)
             self.begin_game.release()
@@ -88,90 +91,117 @@ class Server:
             udp_thread.start()
 
 
+
+
+
+
+
+
+    def receive_char1(self,conn):
+        try:
+            self.answer1 = conn.recv(1024).decode()
+            print("client1: answer is "+self.answer1)
+        except Exception as e:
+            print("")
+        self.check.acquire()
+        if self.winner is None:
+            print("Client1: changing the winner")
+            if self.grand_answer==self.answer1:
+                self.winner=self.name1
+            else:
+                self.winner=self.name2
+        self.check.release()
+
+
+
+    def receive_char2(self, conn):
+        try:
+            self.answer2 = conn.recv(1024).decode()
+            print("client2: answer is "+self.answer2)
+        except Exception as e:
+            print("")
+        self.check.acquire()
+        if self.winner is None:
+            print("Client1: changing the winner")
+            if self.grand_answer == self.answer2:
+                self.winner = self.name2
+            else:
+                self.winner=self.name1
+        self.check.release()
+
+
+
+
+
     def handle_client1(self, conn):
-        self.name1 = conn.recv(1024).decode()
-        print(self.name1)
-        self.ber.wait()  # wait for the other thread to arrive to this point
-        msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
-        conn.send(msg.encode())  # sends the message
+        try:
+            self.answer1=None
+            self.name1 = conn.recv(1024).decode()
+            self.ber.wait()  # wait for the other thread to arrive to this point
+            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
+            conn.send(msg.encode())  # sends the message
+        except Exception as e:
+            print("Lost connection to the client")
         # start counting 10 seconds if no data reviced then send draw message
         timer = time.time();
         end_timer=time.time();
-        while self.winner is None and (end_timer-timer<10.0):
-            try:
-                # conn.settimeout(1)
-                data = conn.recv(1024)
-                data = data.decode()
-                break;
-            except Exception as e:
-                print("this is the time out exception")
-                print(e)
-            finally:
-                end_timer=time.time();
+        try:
+            ans = threading.Thread(target=self.receive_char1, args=(conn,))
+            ans.start()
+            print("Client 1: thread activated")
+        except Exception as e :
+            print("error with the receive thread on client 1")
 
-        if end_timer-timer>=10.0:
-            self.finish = True
-        # check the answer and decide if winneer
-        if not self.finish:
-            self.check.acquire()
-            if self.winner is None:
-                if data == '8':
-                    self.winner = self.name1
-                else:
-                    self.winner = self.name2
-            self.check.release()
-        else:
-            if self.winner is None:
-                self.winner = "draw"
-        # send summery and close the socket
-        conn.send(
-            ('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
-        conn.close()
+        while self.winner is None and (end_timer-timer<10.0):
+            end_timer=time.time();
+        try:
+            if end_timer-timer>=10.0:
+                conn.send(('Game over!\nThe correct answer was 8\n\nits a DREW \n').encode())
+                conn.close()
+            else:
+                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
+                conn.close()
+            # send summery and close the socket
+        except Exception as e:
+            print("Lost connection to the client")
+
+
+
 
     def handle_client2(self, conn):
-        self.name2 = conn.recv(1024).decode()
-        self.ber.wait()  # the game can start if both threads are here
-        msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
-        conn.send(msg.encode())
+        try:
+            self.answer2=None
+            self.name2 = conn.recv(1024).decode()
+            self.ber.wait()  # the game can start if both threads are here
+            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
+            conn.send(msg.encode())
+        except Exception as e:
+            print("Lost connection to the client")
 
         # start counting 10 seconds if no data reviced then send draw message
         timer = time.time();
         end_timer = time.time();
+        try:
+            ans = threading.Thread(target=self.receive_char2, args=(conn,))
+            ans.start()
+            print("Client 2: thread activated")
+
+        except Exception as e :
+            print("error with the receive thread on client 2")
+
         while self.winner is None and (end_timer - timer < 10.0):
-            try:
-                # conn.settimeout(1)
-                data = conn.recv(1024)
-                data = data.decode()
-                break;
-            except Exception as e:
-                print("this is the time out exception")
-                print(e)
-                continue
-            finally:
-                end_timer = time.time();
-
-        if end_timer - timer >= 10.0:
-            self.finish = True
-        # check the answer and decide if winneer
-        if not self.finish:
-            self.check.acquire()
-            if self.winner is None:
-                if data == '8':
-                    self.winner = self.name2
-                else:
-                    self.winner = self.name1
-            self.check.release()
-        else:
-            if self.winner is None:
-                self.winner = "draw"
-        # send summery and close the socket
-        conn.send(
-            ('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
-        conn.close()
-
+            end_timer = time.time();
+        try:
+            if end_timer - timer >= 10.0:
+                conn.send(('Game over!\nThe correct answer was 8\n\nits a DREW \n').encode())
+                conn.close()
+            else:
+                # send summery and close the socket
+                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
+                conn.close()
+        except Exception as e:
+            print("Lost connection to the client")
 
 if __name__ == '__main__':
-    s=Server("10.100.102.6")
-
-# maybe make a winner function with lock and some boolean variable to know if someone was there?
-# need to make sure after closing both sockets that the udp function will start again on different thread.
+    #s=Server("10.100.102.6")
+    s = Server(scapy.all.get_if_addr('172.0.0/24'))
