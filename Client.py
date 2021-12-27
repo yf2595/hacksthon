@@ -1,50 +1,49 @@
 import select
 import socket
 import struct
-import msvcrt
-
+import getch
 
 
 class Client:
     udp_port = 13117
     name = "AmitAndJuval\n"
     tcp_port = None
-
-
+    CRED = '\033[91m'  # error color start
+    CEND = '\033[0m'  # error color end
+    SMCS = '\x1b[6;30;42m'
+    SMCE = '\x1b[0m'
+    GREEN = '\033[32m'
 
     def __init__(self):
         self.getting_offers()
-
-
-
 
     def getting_offers(self):
         complete = True
         # getting udp offers
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            #s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             s.bind(('', 13117))
-            print('Client started, listening for offer requests...')
+            print(self.SMCS + 'Client started, listening for offer requests...' + self.SMCE)
         except Exception as e:
-            print("unable to connect with UDP socket")
-            complete=False;
+            print(self.CRED + "unable to connect with UDP socket" + self.CEND)
+            complete = False;
 
         # getting offers until messege with right ormat arrives
         while True:
             try:
                 data, server = s.recvfrom(1024)
             except Exception as e:
-                print("unable to receive data from socket, connection problem")
+                print(self.CRED + "unable to receive data from socket, connection problem" + self.CEND)
                 complete = False
                 break
             # checking that they are in the right format
             try:
                 tup = struct.unpack(">IbH", data)
             except Exception as e:
-                print("unable to unapck the data from "+server[0]+" , not in >IbH format")
+                print(self.CRED + "unable to unapck the data from " + server[0] + " , not in >IbH format" + self.CEND)
                 continue
-            if len(tup)==3:
+            if len(tup) == 3:
                 if tup[0] == 0xabcddcba and tup[1] == 0x2:  # check the condition
                     # exctarting the port
                     if type(tup[2]) is int:
@@ -55,21 +54,16 @@ class Client:
         if complete:
             self.connect_to_server(server[0])
             return
-        #else:
-            #self.getting_offers();
-
-
-
-
-
+        # else:
+        # self.getting_offers();
 
     def connect_to_server(self, host_ip):
         # connectiong by tcp to the server
-        print('Received offer from ' + host_ip + ' ,attempting to connect...')
+        print(self.SMCS + 'Received offer from ' + host_ip + ' ,attempting to connect...' + self.SMCE)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((host_ip, self.tcp_port))
-            print("client connection with server established")
+            print(self.GREEN + "client connection with server established")
 
             # sending the name of the team
             sock.send(self.name.encode())
@@ -78,21 +72,21 @@ class Client:
             print(data.decode())
             # getting messege from the server (game begin) and prints
             while True:
-                if msvcrt.kbhit():
-                    read=msvcrt.getwch()
-                    print("pressed "+read.decode())
-                    sock.send(read.decode())
-                    data = sock.recv(1024)
-                    print(data.decode())
-                    break;
-                r, _, _ = select.select([sock], [], [],1)
+                r, _, _ = select.select([sock], [], [], 1)
                 if r:
                     data = sock.recv(1024)
                     print(data.decode())
-                    break;
+                    break
+                read = getch()
+                sock.send(read.decode())
+                data = sock.recv(1024)
+                if data:
+                    print(data.decode())
+                    break
+
 
         except Exception as e:
-            print('Server disconnected, listening for offer requests...')
+            print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
             # maybe need to close the socket ?
             # looking for the tcp connection to close by the sever and prints that the connection closed
             # returning to getting_offers function
@@ -101,4 +95,4 @@ class Client:
 
 
 if __name__ == '__main__':
-    c=Client()
+    c = Client()

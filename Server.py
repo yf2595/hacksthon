@@ -3,29 +3,44 @@ import threading
 import time
 import scapy.all
 import struct
+import random
+
 
 
 class Server:
+    # connection attributes
     Port = 2006
     udp_dest = 13117
-    eth1 = '172.0.0/24'
-    eth0 = '172.99.0/24'
+
+
+    # style attributes
+    CRED = '\033[91m' # error color start
+    CEND = '\033[0m' # error color end
+    SMCS='\x1b[6;30;42m'
+    SMCE='\x1b[0m'
+
+    # game attributes
     name1 = None
     name2 = None
     answer1=None
     answer2=None
-    grand_answer="8"
+    bank=[("dogs legs + humen eyes? ","6"),("6+2?","8"),("100-99?","1"),("the sum of all digit in the year we found about CoronaVirus?","4")]
+    grand_answer=""
+    question=""
     winner = None
+
+    # concurconcy objects
     begin_game = threading.Lock()
-    ber = threading.Barrier(2)
     check = threading.Lock()
+    ber = threading.Barrier(2)
+
 
     def __init__(self, ip):
         self.Ip = ip
         self.start()
 
     def start(self):
-        print('Server started, listening on IP address ' + self.Ip)
+        print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip+ '\x1b[0m')
         udp_thread = threading.Thread(target=self.start_server_udp)
         # start upd
         tcp_thread = threading.Thread(target=self.start_server_tcp)
@@ -37,37 +52,45 @@ class Server:
 
 
     def start_server_udp(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        # Enable broadcasting mode
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        # UDP
-        # sock.bind((self.Ip, self.Port))
-        bytes_to_send = struct.pack(">IbH", 0xabcddcba, 0x2, self.Port)
-        # need to see how you can send byte or string?!
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Enable broadcasting mode
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            # UDP
+            # sock.bind((self.Ip, self.Port))
+            bytes_to_send = struct.pack(">IbH", 0xabcddcba, 0x2, self.Port)
+            # need to see how you can send byte or string?!
 
-        while not self.begin_game.locked():
-            # while the tcp thread did not said that the game started
-            sock.sendto(bytes_to_send, ("<broadcast>", self.udp_dest))
-            # send offer
-            time.sleep(1)
-            # sleep
-        sock.close()
+            while not self.begin_game.locked():
+                # while the tcp thread did not said that the game started
+                sock.sendto(bytes_to_send, ("<broadcast>", self.udp_dest))
+                print("Just sent Brodcast over UDP ")
+                # send offer
+                time.sleep(1)
+                # sleep
+            sock.close()
+        except Exception as e:
+            print(self.CRED+'unable to connect with UDP socket'+self.CEND)
 
 
 
 
     def start_server_tcp(self):
-
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((self.Ip, self.Port))
-        s.listen(2)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind((self.Ip, self.Port))
+            s.listen(2)
+            print("TCP socket connection runing, listening to requests...")
+        except:
+            print(self.CRED+'Unable to create TCP socket'+self.CEND)
         while True:
             self.winner = None
             self.ber=threading.Barrier(2)
             is_empty = True  # no even one player
             is_full = False  # all the players arrived the game can begin
             while not is_full:
+                r=random.randint(0,len(self.bank)-1)
+                self.question, self.grand_answer=self.bank[r]
                 if is_empty:
                     conn, addr = s.accept()
                     player1 = threading.Thread(target=self.handle_client1, args=(conn,))
@@ -85,7 +108,7 @@ class Server:
             player1.join()
             player2.join()
 
-            print('Server started, listening on IP address ' + self.Ip)
+            print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip+ '\x1b[0m')
             self.begin_game.release()
             udp_thread = threading.Thread(target=self.start_server_udp)
             udp_thread.start()
@@ -100,12 +123,11 @@ class Server:
     def receive_char1(self,conn):
         try:
             self.answer1 = conn.recv(1024).decode()
-            print("client1: answer is "+self.answer1)
+
         except Exception as e:
-            print("")
+            pass
         self.check.acquire()
         if self.winner is None:
-            print("Client1: changing the winner")
             if self.grand_answer==self.answer1:
                 self.winner=self.name1
             else:
@@ -117,12 +139,10 @@ class Server:
     def receive_char2(self, conn):
         try:
             self.answer2 = conn.recv(1024).decode()
-            print("client2: answer is "+self.answer2)
         except Exception as e:
-            print("")
+            pass
         self.check.acquire()
         if self.winner is None:
-            print("Client1: changing the winner")
             if self.grand_answer == self.answer2:
                 self.winner = self.name2
             else:
@@ -137,33 +157,33 @@ class Server:
         try:
             self.answer1=None
             self.name1 = conn.recv(1024).decode()
+            print("Client 1 has accepted: "+self.name1)
             self.ber.wait()  # wait for the other thread to arrive to this point
-            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
+            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is '+self.question
             conn.send(msg.encode())  # sends the message
         except Exception as e:
-            print("Lost connection to the client")
+            print(self.CRED+'Lost connection to the client'+self.CEND)
         # start counting 10 seconds if no data reviced then send draw message
-        timer = time.time();
-        end_timer=time.time();
+        timer = time.time()
+        end_timer=time.time()
         try:
             ans = threading.Thread(target=self.receive_char1, args=(conn,))
             ans.start()
-            print("Client 1: thread activated")
         except Exception as e :
-            print("error with the receive thread on client 1")
+            print(self.CRED+"error with the receive thread on client 1"+self.CEND)
 
         while self.winner is None and (end_timer-timer<10.0):
-            end_timer=time.time();
+            end_timer=time.time()
         try:
             if end_timer-timer>=10.0:
-                conn.send(('Game over!\nThe correct answer was 8\n\nits a DREW \n').encode())
+                conn.send(('Game over!\nThe correct answer was 8\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
                 conn.close()
             else:
-                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
+                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
                 conn.close()
             # send summery and close the socket
         except Exception as e:
-            print("Lost connection to the client")
+            print(self.CRED+"Lost connection to the client"+self.CEND)
 
 
 
@@ -172,36 +192,36 @@ class Server:
         try:
             self.answer2=None
             self.name2 = conn.recv(1024).decode()
+            print("Client 2 has accepted: "+self.name2)
             self.ber.wait()  # the game can start if both threads are here
-            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is 7+1?\n'
+            msg = 'Welcome to Quick Maths\nPlayer 1: ' + self.name1 + 'Player 2: ' + self.name2 + '==\nPlease answer the following question as fast as you can:\nHow much is '+self.question
             conn.send(msg.encode())
         except Exception as e:
-            print("Lost connection to the client")
+            print(self.CRED+"Lost connection to the client"+self.CEND)
 
         # start counting 10 seconds if no data reviced then send draw message
-        timer = time.time();
-        end_timer = time.time();
+        timer = time.time()
+        end_timer = time.time()
         try:
             ans = threading.Thread(target=self.receive_char2, args=(conn,))
             ans.start()
-            print("Client 2: thread activated")
 
         except Exception as e :
-            print("error with the receive thread on client 2")
+            print(self.CRED+"error with the receive thread on client 2"+self.CEND)
 
         while self.winner is None and (end_timer - timer < 10.0):
-            end_timer = time.time();
+            end_timer = time.time()
         try:
             if end_timer - timer >= 10.0:
-                conn.send(('Game over!\nThe correct answer was 8\n\nits a DREW \n').encode())
+                conn.send(('Game over!\nThe correct answer was 8\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
                 conn.close()
             else:
                 # send summery and close the socket
-                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' + self.winner + '\n').encode())
+                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
                 conn.close()
         except Exception as e:
-            print("Lost connection to the client")
-
+            print(self.CRED+"Lost connection to the client"+self.CEND)
+        finally:
+            print("GAME OVER winner is "+self.winner)
 if __name__ == '__main__':
-    #s=Server("10.100.102.6")
-    s = Server(scapy.all.get_if_addr('172.0.0/24'))
+    s = Server(scapy.all.get_if_addr('eth1'))
