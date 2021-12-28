@@ -57,16 +57,17 @@ class Server:
             # Enable broadcasting mode
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             # UDP
-            # sock.bind((self.Ip, self.Port))
             bytes_to_send = struct.pack(">IbH", 0xabcddcba, 0x2, self.Port)
             # need to see how you can send byte or string?!
 
-            while not self.begin_game.locked():
+            while True:
+                self.begin_game.acquire()
                 # while the tcp thread did not said that the game started
                 sock.sendto(bytes_to_send, ("<broadcast>", self.udp_dest))
                 print("Just sent Brodcast over UDP ")
+                self.begin_game.release()
                 # send offer
-                time.sleep(1)
+                time.sleep(2)
                 # sleep
             sock.close()
         except Exception as e:
@@ -78,8 +79,9 @@ class Server:
     def start_server_tcp(self):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print((self.Ip, self.Port))
             s.bind((self.Ip, self.Port))
-            s.listen(2)
+            s.listen(5)
             print("TCP socket connection runing, listening to requests...")
         except:
             print(self.CRED+'Unable to create TCP socket'+self.CEND)
@@ -92,26 +94,33 @@ class Server:
                 r=random.randint(0,len(self.bank)-1)
                 self.question, self.grand_answer=self.bank[r]
                 if is_empty:
+                    print("waiting for client 1")
                     conn, addr = s.accept()
+                    print("client 1 accepted")
                     player1 = threading.Thread(target=self.handle_client1, args=(conn,))
                     is_empty = False
                     player1.start()
+                    print("thread started - client1")
 
                 else:
+                    print("waiting for client 2")
                     conn, addr = s.accept()
+                    print("client 2 accepted")
                     player2 = threading.Thread(target=self.handle_client2, args=(conn,))
                     is_full = True
                     player2.start()
+                    print("thread started - client2")
+
 
 
             self.begin_game.acquire()  # change the lock to locked the udp loop will stop
             player1.join()
+            print('client 1 thread finished')
             player2.join()
-
-            print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip+ '\x1b[0m')
+            print('client 2 thread finished')
             self.begin_game.release()
-            udp_thread = threading.Thread(target=self.start_server_udp)
-            udp_thread.start()
+            print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip+ '\x1b[0m')
+
 
 
 
@@ -123,7 +132,6 @@ class Server:
     def receive_char1(self,conn):
         try:
             self.answer1 = conn.recv(1024).decode()
-
         except Exception as e:
             pass
         self.check.acquire()
@@ -172,14 +180,18 @@ class Server:
         except Exception as e :
             print(self.CRED+"error with the receive thread on client 1"+self.CEND)
 
-        while self.winner is None and (end_timer-timer<10.0):
+        while self.winner is None:
             end_timer=time.time()
+            time.sleep(1)
+            if end_timer - timer > 10.0:
+                break
+
         try:
             if end_timer-timer>=10.0:
-                conn.send(('Game over!\nThe correct answer was 8\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
+                conn.send(('Game over!\nThe correct answer was '+self.grand_answer+ '\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
                 conn.close()
             else:
-                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
+                conn.send(('Game over!\nThe correct answer was '+self.greand_answer+ '\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
                 conn.close()
             # send summery and close the socket
         except Exception as e:
@@ -208,20 +220,25 @@ class Server:
 
         except Exception as e :
             print(self.CRED+"error with the receive thread on client 2"+self.CEND)
+        print("entering clock while:")
 
-        while self.winner is None and (end_timer - timer < 10.0):
+        while self.winner is None :
             end_timer = time.time()
+            time.sleep(1)
+            if end_timer - timer > 10.0:
+                break
         try:
             if end_timer - timer >= 10.0:
-                conn.send(('Game over!\nThe correct answer was 8\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
+                conn.send(('Game over!\nThe correct answer was '+self.grand_answer+'\n\nits a '+self.SMCS+'DREW' +self.SMCE+'\n').encode())
                 conn.close()
             else:
                 # send summery and close the socket
-                conn.send(('Game over!\nThe correct answer was 8\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
+                conn.send(('Game over!\nThe correct answer was '+self.grand_answer+'\n\nCongratulations to the winner: ' +self.SMCS+self.winner +self.SMCE+ '\n').encode())
                 conn.close()
         except Exception as e:
             print(self.CRED+"Lost connection to the client"+self.CEND)
-        finally:
-            print("GAME OVER winner is "+self.winner)
+
+
+
 if __name__ == '__main__':
     s = Server(scapy.all.get_if_addr('eth1'))
