@@ -5,12 +5,13 @@ import getch
 import time
 import threading
 import scapy.all
+import multiprocessing as mp
 
 
 class Client:
     udp_port = 13117
     ip = ""
-    name = "AmitAndJuval\n"
+    name = "test2\n"
     tcp_port = None
     CRED = '\033[91m'  # error color start
     CEND = '\033[0m'  # error color end
@@ -18,7 +19,6 @@ class Client:
     SMCE = '\x1b[0m'
     GREEN = '\033[32m'
     Mutex = threading.Lock()
-    w = []
 
     def __init__(self, IP):
         self.ip = IP
@@ -80,18 +80,22 @@ class Client:
                 self.Mutex.release()
                 self.connect_to_server(server[0])
 
-    def get_char():
-        word = input()
-        self.w.append(word)
+    def get_char(self):
+        global w
+        w=[]
+        word=getch.getch()
+        w.append(word)
+        print(w)
 
     def connect_to_server(self, host_ip):
+        global w
         self.Mutex.acquire()
         # connectiong by tcp to the server
         print(self.SMCS + 'Received offer from ' + host_ip + ' ,attempting to connect...' + self.SMCE)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             addr = ('172.1.0.6', self.tcp_port)
-            # addr=(host_ip,self.tcp_port)
+            #addr=(host_ip,self.tcp_port)
             print(addr)
             sock.connect(addr)
             print(self.GREEN + "client connection with server established")
@@ -106,34 +110,22 @@ class Client:
             data = sock.recv(1024)
             print(data.decode())
             # getting messege from the server (game begin) and prints
-            self.w = []
+            w = []
             t = threading.Thread(target=self.get_char)
             t.start()
-            while True:
-                r, _, _ = select.select([sock], [], [])
+            while w==[]:
+                r, _, _ = select.select([sock], [], [],1)
                 if r:
                     data = sock.recv(1024)
                     print(data.decode())
                     sock.close()
-                    break
-                if len(self.w) > 0:
-                    sock.send(self.w[0])
-                    data = sock.recv(1024)
-                    print(data.decode())
-                    sock.close()
+                    return
+            to_send=w[0]
+            sock.send(to_send.encode())
+            data = sock.recv(1024)
+            print(data.decode())
+            sock.close()
 
-            # while read==b'':
-            #     r, _, _ = select.select([sock], [], [])
-            #     if r:
-            #         data = sock.recv(1024)
-            #         print(data.decode())
-            #         recived=True
-            #         break
-            #     read=getch()
-            # if not recived:
-            #     sock.send(read)
-            #     data = sock.recv(1024)
-            #     print(data.decode())
 
 
         except Exception as e:

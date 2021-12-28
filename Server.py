@@ -38,6 +38,7 @@ class Server:
     def __init__(self, ip):
         self.Ip = ip
         self.start()
+        # start the server
 
     def start(self):
         print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip+ '\x1b[0m')
@@ -58,7 +59,7 @@ class Server:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             # UDP
             bytes_to_send = struct.pack(">IbH", 0xabcddcba, 0x2, self.Port)
-            # need to see how you can send byte or string?!
+            #sending packege with magi cookie, offer request and tcp port6
 
             while True:
                 self.begin_game.acquire()
@@ -94,7 +95,6 @@ class Server:
                 r=random.randint(0,len(self.bank)-1)
                 self.question, self.grand_answer=self.bank[r]
                 if is_empty:
-                    print("waiting for client 1")
                     conn, addr = s.accept()
                     print("client 1 accepted")
                     player1 = threading.Thread(target=self.handle_client1, args=(conn,))
@@ -103,7 +103,6 @@ class Server:
                     print("thread started - client1")
 
                 else:
-                    print("waiting for client 2")
                     conn, addr = s.accept()
                     print("client 2 accepted")
                     player2 = threading.Thread(target=self.handle_client2, args=(conn,))
@@ -171,6 +170,7 @@ class Server:
             conn.send(msg.encode())  # sends the message
         except Exception as e:
             print(self.CRED+'Lost connection to the client'+self.CEND)
+            conn.close()
         # start counting 10 seconds if no data reviced then send draw message
         timer = time.time()
         end_timer=time.time()
@@ -179,6 +179,7 @@ class Server:
             ans.start()
         except Exception as e :
             print(self.CRED+"error with the receive thread on client 1"+self.CEND)
+            conn.close()
 
         while self.winner is None:
             end_timer=time.time()
@@ -196,6 +197,7 @@ class Server:
             # send summery and close the socket
         except Exception as e:
             print(self.CRED+"Lost connection to the client"+self.CEND)
+            conn.close()
 
 
 
@@ -210,6 +212,7 @@ class Server:
             conn.send(msg.encode())
         except Exception as e:
             print(self.CRED+"Lost connection to the client"+self.CEND)
+            conn.close()
 
         # start counting 10 seconds if no data reviced then send draw message
         timer = time.time()
@@ -220,7 +223,7 @@ class Server:
 
         except Exception as e :
             print(self.CRED+"error with the receive thread on client 2"+self.CEND)
-        print("entering clock while:")
+            conn.close()
 
         while self.winner is None :
             end_timer = time.time()
@@ -237,8 +240,11 @@ class Server:
                 conn.close()
         except Exception as e:
             print(self.CRED+"Lost connection to the client"+self.CEND)
+            conn.close()
+
 
 
 
 if __name__ == '__main__':
+    # start server with ip
     s = Server(scapy.all.get_if_addr('eth1'))
