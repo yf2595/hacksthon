@@ -19,7 +19,7 @@ class Client:
     SMCE = '\x1b[0m'
     GREEN = '\033[32m'
     Mutex = threading.Lock()
-    w=[]
+    w = []
 
     def __init__(self, IP):
         self.ip = IP
@@ -74,8 +74,8 @@ class Client:
             self.Mutex.release()
             self.connect_to_server(server[0])
 
-    def get_char(self,return_list):
-        word=getch.getch()
+    def get_char(self, return_list):
+        word = getch.getch()
         return_list.append(word)
         print(return_list)
 
@@ -87,7 +87,7 @@ class Client:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             addr = ('172.1.0.6', self.tcp_port)
-            #addr=(host_ip,self.tcp_port)
+            # addr=(host_ip,self.tcp_port)
             print(addr)
             sock.connect(addr)
             print(self.GREEN + "client connection with server established")
@@ -101,33 +101,37 @@ class Client:
 
             data = sock.recv(1024)
             print(data.decode())
+            self.w = []
             manager = mp.Manager()
-            return_list= manager.list()
+            return_list = manager.list()
             # getting messege from the server (game begin) and prints
-            t = mp.Process(target=self.get_char,args=(return_list,))
+            t = mp.Process(target=self.get_char, args=(return_list,))
             t.start()
             while True:
-                r, _, _ = select.select([sock],  [], [],1)
+                r, _, _ = select.select([sock], [], [], 1)
                 if r:
                     data = sock.recv(1024)
                     print(data.decode())
                     sock.close()
                     break
                 if return_list:
-                    to_send=return_list[0]
+                    to_send = return_list[0]
                     sock.send(to_send.encode())
                     data = sock.recv(1024)
                     print(data.decode())
                     sock.close()
                     break
 
+            t.teminate()
+
         except Exception as e:
             print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
-            print(e)
+            print(self.CRED + 'Error - ' + str(e) + self.CEND)
             # maybe need to close the socket ?
             # looking for the tcp connection to close by the sever and prints that the connection closed
             # returning to getting_offers function
         finally:
+            print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
             self.Mutex.release()
 
 
