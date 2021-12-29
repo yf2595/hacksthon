@@ -9,24 +9,39 @@ import multiprocessing as mp
 
 
 class Client:
+    # connection properties
     udp_port = 13117
     ip = ""
     name = "Eyal Golen is single\n"
     tcp_port = None
+
+    # style
     CRED = '\033[91m'  # error color start
     CEND = '\033[0m'  # error color end
     SMCS = '\x1b[6;30;42m'
     SMCE = '\x1b[0m'
     GREEN = '\033[32m'
+
+    # trheading tools
     Mutex = threading.Lock()
-    w = []
 
     def __init__(self, IP):
+        '''
+        param: ip - the ip address of the client
+
+        initialize ip address and start the UDP function
+        '''
         self.ip = IP
         print(self.SMCS + 'Client started, listening for offer requests...' + self.SMCE)
         self.getting_offers()
 
     def getting_offers(self):
+        '''
+        Function that will set the udp socket and listen for offers.
+        The function will check the packtes arriving and try to unpack them with >IbH format
+        If the packet is in the right format its will call the tcp function with the extracted port from the udp packet
+        '''
+
         # getting udp offers
         while True:
             self.Mutex.acquire()
@@ -75,14 +90,20 @@ class Client:
             self.connect_to_server(server[0])
 
     def get_char(self, return_list):
+        '''
+        This function will add a char if pressed to the mp Manager list .
+        '''
+
         word = getch.getch()
         return_list.append(word)
-        print(return_list)
 
     def connect_to_server(self, host_ip):
-        global w
+        '''
+        Function which will initiate the TCP connection and will send and receive with the server.
+        '''
+
         self.Mutex.acquire()
-        # connectiong by tcp to the server
+        # connecting by tcp to the server
         print(self.SMCS + 'Received offer from ' + host_ip + ' ,attempting to connect...' + self.SMCE)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -95,41 +116,45 @@ class Client:
             print(self.CRED + "Unable to create TCP socket with server" + self.CEND)
             self.Mutex.release()
             return
-            # sending the name of the team
         try:
+            # sending the name of the team
             sock.send(self.name.encode())
 
             data = sock.recv(1024)
             print(data.decode())
-            self.w = []
+            # getting messege from the server (game begin) and prints
+
+            # mp tools
+            # Start new process to take char from the console
             manager = mp.Manager()
             return_list = manager.list()
-            # getting messege from the server (game begin) and prints
             t = mp.Process(target=self.get_char, args=(return_list,))
             t.start()
             while True:
+                # check if any messeges from the server
                 r, _, _ = select.select([sock], [], [], 1)
                 if r:
                     data = sock.recv(1024)
                     print(data.decode())
                     sock.close()
+                    # end game message arrived the socket is closing
                     break
                 if return_list:
                     to_send = return_list[0]
                     sock.send(to_send.encode())
+                    # sending the answer
                     data = sock.recv(1024)
                     print(data.decode())
+                    # reciving the result
                     sock.close()
                     break
-
+            # terminat the input procces
             t.teminate()
 
         except Exception as e:
             print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
             print(self.CRED + 'Error - ' + str(e) + self.CEND)
-            # maybe need to close the socket ?
-            # looking for the tcp connection to close by the sever and prints that the connection closed
-            # returning to getting_offers function
+
         finally:
             print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
             self.Mutex.release()

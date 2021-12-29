@@ -44,10 +44,13 @@ class Server:
 
     def start(self):
         print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip + '\x1b[0m')
+
         udp_thread = threading.Thread(target=self.start_server_udp)
         # start upd
+
         tcp_thread = threading.Thread(target=self.start_server_tcp)
         # start tcp
+
         udp_thread.start()
         tcp_thread.start()
 
@@ -70,6 +73,7 @@ class Server:
                 time.sleep(2)
                 # sleep
             sock.close()
+
         except Exception as e:
             print(self.CRED + 'unable to connect with UDP socket' + self.CEND)
             print(self.CRED + "Error description : " + str(e) + self.CEND)
@@ -82,18 +86,22 @@ class Server:
             # s.bind('0.0.255.255', self.Port)
             s.listen(5)
             print("TCP socket connection runing, listening to requests...")
+
         except Exception as e:
             print(self.CRED + 'Unable to create TCP socket' + self.CEND)
             print(self.CRED + "Error description : " + str(e) + self.CEND)
+
 
         while True:
             # self.winner = None
             self.ber = threading.Barrier(2)
             is_empty = True  # no even one player
             is_full = False  # all the players arrived the game can begin
+
             while not is_full:
                 r = random.randint(0, len(self.bank) - 1)
                 self.question, self.grand_answer = self.bank[r]
+
                 if is_empty:
                     try:
                         conn, addr = s.accept()
@@ -102,6 +110,7 @@ class Server:
                         is_empty = False
                         player1.start()
                         print("thread started - client1")
+
                     except:
                         print(self.CRED + 'Unable to accept client via TCP socket' + self.CEND)
                         continue
@@ -182,17 +191,13 @@ class Server:
 
         try:
             if end_timer - timer >= 10.0:
-                conn.send((
-                                      'Game over!\nThe correct answer was ' + self.grand_answer + '\n\nits a ' + self.SMCS + 'DREW' + self.SMCE + '\n' + 'Total games played on our server: ' + str(
-                                  self.total_played) + '\n').encode())
+                conn.send(('Game over!\nThe correct answer was ' + self.grand_answer + '\n\nits a ' + self.SMCS + 'DREW' + self.SMCE + '\n' + 'Total games played on our server: ' + str(self.total_played) + '\n').encode())
                 conn.close()
             else:
-                conn.send((
-                                      'Game over!\nThe correct answer was ' + self.grand_answer + '\n\nCongratulations to the winner: ' + self.SMCS + self.winner[
-                                                                                                                                                      :-1] + self.SMCE + '\n' + 'Total games played on our server: ' + str(
-                                  self.total_played) + '\n').encode())
+                conn.send(('Game over!\nThe correct answer was ' + self.grand_answer + '\n\nCongratulations to the winner: ' + self.SMCS + self.winner[:-1] + self.SMCE + '\n' + 'Total games played on our server: ' + str(self.total_played) + '\n').encode())
                 conn.close()
             # send summery and close the socket
+
         except Exception as e:
             print(self.CRED + "Lost connection to the client" + self.CEND)
             print(self.CRED + "Error description : " + str(e) + self.CEND)
@@ -201,6 +206,9 @@ class Server:
             else:
                 self.winner = self.name1
             conn.close()
+
+
+
 
     def receive_char(self, conn, first):
         try:
@@ -227,6 +235,9 @@ class Server:
                     self.winner = self.name1
 
         self.check.release()
+
+
+
 
 
 if __name__ == '__main__':
