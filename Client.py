@@ -11,7 +11,7 @@ import multiprocessing as mp
 class Client:
     udp_port = 13117
     ip = ""
-    name = "test2\n"
+    name = "test1\n"
     tcp_port = None
     CRED = '\033[91m'  # error color start
     CEND = '\033[0m'  # error color end
@@ -19,6 +19,7 @@ class Client:
     SMCE = '\x1b[0m'
     GREEN = '\033[32m'
     Mutex = threading.Lock()
+    w=[]
 
     def __init__(self, IP):
         self.ip = IP
@@ -28,7 +29,6 @@ class Client:
     def getting_offers(self):
         # getting udp offers
         while True:
-            complete = True
             self.Mutex.acquire()
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -37,7 +37,6 @@ class Client:
                 s.bind(('', 13117))
             except Exception as e:
                 print(self.CRED + "unable to connect with UDP socket" + self.CEND)
-                complete = False;
                 self.Mutex.release()
                 continue
 
@@ -46,7 +45,6 @@ class Client:
                 data, server = s.recvfrom(1024)
             except Exception as e:
                 print(self.CRED + "unable to receive data from socket, connection problem" + self.CEND)
-                complete = False
                 self.Mutex.release()
                 continue
             # checking that they are in the right format
@@ -63,29 +61,23 @@ class Client:
                         self.tcp_port = tup[2]
                         s.close()
                     else:
-                        complete = False
                         self.Mutex.release()
                         continue
                 else:
-                    complete = False
                     self.Mutex.release()
                     continue
             else:
-                complete = False
                 self.Mutex.release()
                 continue
                 # got tcp port attempting to connect
-            if complete:
-                s.close()
-                self.Mutex.release()
-                self.connect_to_server(server[0])
+            s.close()
+            self.Mutex.release()
+            self.connect_to_server(server[0])
 
     def get_char(self):
-        global w
-        w=[]
+        self.w=[]
         word=getch.getch()
-        w.append(word)
-        print(w)
+        self.w.append(word)
 
     def connect_to_server(self, host_ip):
         global w
@@ -110,23 +102,23 @@ class Client:
             data = sock.recv(1024)
             print(data.decode())
             # getting messege from the server (game begin) and prints
-            w = []
-            t = threading.Thread(target=self.get_char)
+            t = mp.Process(target=self.get_char)
             t.start()
-            while w==[]:
-                r, _, _ = select.select([sock], [], [],1)
+            while True:
+                r, _, _ = select.select([sock],  [], [],1)
                 if r:
                     data = sock.recv(1024)
                     print(data.decode())
                     sock.close()
-                    return
-            to_send=w[0]
-            sock.send(to_send.encode())
-            data = sock.recv(1024)
-            print(data.decode())
-            sock.close()
-
-
+                    break
+                if self.w:
+                    print(self.w[0])
+                    to_send=self.w[0]
+                    sock.send(to_send.encode())
+                    data = sock.recv(1024)
+                    print(data.decode())
+                    sock.close()
+                    break
 
         except Exception as e:
             print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
