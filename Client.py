@@ -49,7 +49,7 @@ class Client:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                s.bind(('', 13117))
+                s.bind(('172.99.255.255', 13117))
             except Exception as e:
                 print(self.CRED + "unable to connect with UDP socket" + self.CEND)
                 self.Mutex.release()
