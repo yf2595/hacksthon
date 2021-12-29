@@ -38,6 +38,9 @@ class Server:
     total_played = 0
 
     def __init__(self, ip):
+        '''
+        Function thet sets the IP address and calls for start function to initate the connections.
+        '''
         self.Ip = ip
         lst = self.Ip.split(".")
         self.brod = lst[0] + '.' + lst[1] + '.' + '255.255'
@@ -46,6 +49,9 @@ class Server:
         # start the server
 
     def start(self):
+        '''
+        Function that will initaite 2 new threads one for UDP conn and TCP conn
+        '''
         print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip + '\x1b[0m')
 
         udp_thread = threading.Thread(target=self.start_server_udp)
@@ -58,6 +64,9 @@ class Server:
         tcp_thread.start()
 
     def start_server_udp(self):
+        '''
+        Function that starts the UDP socket and sends offers in >IbH format
+        '''
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # Enable broadcasting mode
@@ -82,11 +91,13 @@ class Server:
             print(self.CRED + "Error description : " + str(e) + self.CEND)
 
     def start_server_tcp(self):
+        '''
+        Function that initaite the tcp socket and listen for clients
+        Creates 2 new threads - one for each client
+        '''
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            print((self.Ip, self.Port))
             s.bind((self.Ip, self.Port))
-            # s.bind('0.0.255.255', self.Port)
             s.listen(5)
             print("TCP socket connection runing, listening to requests...")
 
@@ -107,11 +118,9 @@ class Server:
                 if is_empty:
                     try:
                         conn, addr = s.accept()
-                        print("client 1 accepted")
                         player1 = threading.Thread(target=self.handle_client, args=(conn, True))
                         is_empty = False
                         player1.start()
-                        print("thread started - client1")
 
                     except:
                         print(self.CRED + 'Unable to accept client via TCP socket' + self.CEND)
@@ -121,7 +130,6 @@ class Server:
                 else:
                     try:
                         conn, addr = s.accept()
-                        print("client 2 accepted")
                         player2 = threading.Thread(target=self.handle_client, args=(conn, False))
                         is_full = True
                         player2.start()
@@ -139,6 +147,10 @@ class Server:
             print('\x1b[6;30;42m' + 'Server started, listening on IP address ' + self.Ip + '\x1b[0m')
 
     def handle_client(self, conn, first):
+        '''
+        Functiov that starts the game.
+        The function send and revice messeges with the client on the other side of the connection
+        '''
         try:
             self.winner = None
             name = conn.recv(1024).decode()
@@ -173,11 +185,11 @@ class Server:
                 ans.start()
         except Exception as e:
             if first:
-                print(self.CRED + "error with the receive thread on client 1" + self.CEND)
+                print(self.CRED + "Error with the receive thread on client 1" + self.CEND)
                 self.winner = self.name2
 
             else:
-                print(self.CRED + "error with the receive thread on client 2" + self.CEND)
+                print(self.CRED + "Error with the receive thread on client 2" + self.CEND)
                 print(self.CRED + "Error description : " + str(e) + self.CEND)
                 self.winner = self.name1
 
@@ -213,10 +225,13 @@ class Server:
             conn.close()
 
     def receive_char(self, conn, first):
+        '''
+        Function that recieve the connection and waits for client answer via the connection
+        The function will ditermine who is the winned
+        '''
         try:
             attempt = conn.recv(1024).decode()
         except Exception as e:
-            print("problem")
             if first:
                 self.winner = self.name2
             else:
