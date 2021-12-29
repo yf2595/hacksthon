@@ -107,9 +107,7 @@ class Client:
         print(self.SMCS + 'Received offer from ' + host_ip + ' ,attempting to connect...' + self.SMCE)
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            addr = ('172.1.0.6', self.tcp_port)
-            # addr=(host_ip,self.tcp_port)
-            print(addr)
+            addr=(host_ip,self.tcp_port)
             sock.connect(addr)
             print(self.GREEN + "client connection with server established")
         except:
@@ -149,7 +147,7 @@ class Client:
                     sock.close()
                     break
             # terminat the input procces
-            t.teminate()
+            t.terminate()
 
         except Exception as e:
             print(self.CRED + 'Server disconnected, listening for offer requests...' + self.CEND)
