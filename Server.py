@@ -87,7 +87,7 @@ class Server:
             print(self.CRED + "Error description : " + str(e) + self.CEND)
 
         while True:
-            self.winner = None
+            # self.winner = None
             self.ber = threading.Barrier(2)
             is_empty = True  # no even one player
             is_full = False  # all the players arrived the game can begin
@@ -132,7 +132,6 @@ class Server:
     def handle_client(self, conn, first):
         try:
             self.winner = None
-            self.answer1 = None
             name = conn.recv(1024).decode()
             if first:
                 self.name1 = name
@@ -207,6 +206,7 @@ class Server:
         try:
             attempt = conn.recv(1024).decode()
         except Exception as e:
+            print("problem")
             if first:
                 self.winner = self.name2
             else:

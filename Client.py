@@ -11,7 +11,7 @@ import multiprocessing as mp
 class Client:
     udp_port = 13117
     ip = ""
-    name = "test1\n"
+    name = "Eyal Golen is single\n"
     tcp_port = None
     CRED = '\033[91m'  # error color start
     CEND = '\033[0m'  # error color end
@@ -74,10 +74,10 @@ class Client:
             self.Mutex.release()
             self.connect_to_server(server[0])
 
-    def get_char(self):
-        self.w=[]
+    def get_char(self,return_list):
         word=getch.getch()
-        self.w.append(word)
+        return_list.append(word)
+        print(return_list)
 
     def connect_to_server(self, host_ip):
         global w
@@ -101,8 +101,10 @@ class Client:
 
             data = sock.recv(1024)
             print(data.decode())
+            manager = mp.Manager()
+            return_list= manager.list()
             # getting messege from the server (game begin) and prints
-            t = mp.Process(target=self.get_char)
+            t = mp.Process(target=self.get_char,args=(return_list,))
             t.start()
             while True:
                 r, _, _ = select.select([sock],  [], [],1)
@@ -111,9 +113,8 @@ class Client:
                     print(data.decode())
                     sock.close()
                     break
-                if self.w:
-                    print(self.w[0])
-                    to_send=self.w[0]
+                if return_list:
+                    to_send=return_list[0]
                     sock.send(to_send.encode())
                     data = sock.recv(1024)
                     print(data.decode())
